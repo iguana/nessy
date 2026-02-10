@@ -1,5 +1,7 @@
 # NESsy
 
+![NESsy Tetris gameplay](nessy.png)
+
 A Tetris game for the NES, built from scratch in C and 6502 assembly using the cc65 toolchain.
 
 ## Quick Start
