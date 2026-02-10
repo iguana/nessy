@@ -27,6 +27,25 @@
 #define MASK_BG_L8  0x02
 #define MASK_SPR_L8 0x04
 
+/* Tile constants for game graphics */
+#define TILE_EMPTY  0x60
+#define TILE_BLOCK  0x61
+#define TILE_BRD_TL 0x68
+#define TILE_BRD_TR 0x69
+#define TILE_BRD_BL 0x6A
+#define TILE_BRD_BR 0x6B
+#define TILE_BRD_H  0x6C
+#define TILE_BRD_V  0x6D
+#define TILE_BLANK  0x00
+
+/* OAM buffer (256 bytes at $0200) */
+extern unsigned char oam_buf[256];
+
+/* VRAM update buffer and length */
+extern unsigned char vram_buf[128];
+extern unsigned char vbuf_len;
+#pragma zpsym("vbuf_len")
+
 /* Wait for next NMI (vblank). Requires NMI to be enabled. */
 void __fastcall__ ppu_wait_nmi(void);
 

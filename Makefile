@@ -66,7 +66,9 @@ $(CHRBIN): $(TOOLDIR)/chr_gen.py
 
 # ── Compile C → assembly ─────────────────────────────────────────
 
-$(BLDDIR)/%.s: $(SRCDIR)/%.c $(SRCDIR)/neslib.h | $(BLDDIR)
+HEADERS := $(wildcard $(SRCDIR)/*.h)
+
+$(BLDDIR)/%.s: $(SRCDIR)/%.c $(HEADERS) | $(BLDDIR)
 	$(CC65) $(CC65FLAGS) -o $@ $<
 
 # ── Assemble → object ────────────────────────────────────────────

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate 8KB CHR-ROM with printable ASCII font (0x20-0x7F) in NES 2bpp planar format."""
+"""Generate 8KB CHR-ROM with printable ASCII font (0x20-0x7F) plus game tiles in NES 2bpp planar format."""
 
 import sys
 import os
@@ -105,10 +105,49 @@ FONT = {
 }
 
 
+# Game tiles - these use 2bpp color (both planes) for richer appearance
+# Tile indices are absolute (not offset by 0x20)
+# Stored as (plane0, plane1) tuple per row for 2bpp color support
+GAME_TILES = {
+    # Empty cell ($60, tile index 64): solid dark fill
+    0x60: {'p0': [0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00],
+           'p1': [0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]},
+
+    # Block ($61, tile index 65): highlighted block with border - color 3 (both planes)
+    0x61: {'p0': [0xFF,0x81,0xBD,0xBD,0xBD,0xBD,0x81,0xFF],
+           'p1': [0xFF,0xFF,0xC3,0xC3,0xC3,0xC3,0xFF,0xFF]},
+
+    # Border top-left corner ($68, tile index 72)
+    0x68: {'p0': [0x00,0x00,0x0F,0x08,0x08,0x08,0x08,0x08],
+           'p1': [0x00,0x00,0x0F,0x0F,0x08,0x08,0x08,0x08]},
+
+    # Border top-right corner ($69, tile index 73)
+    0x69: {'p0': [0x00,0x00,0xF0,0x10,0x10,0x10,0x10,0x10],
+           'p1': [0x00,0x00,0xF0,0xF0,0x10,0x10,0x10,0x10]},
+
+    # Border bottom-left corner ($6A, tile index 74)
+    0x6A: {'p0': [0x08,0x08,0x08,0x08,0x0F,0x00,0x00,0x00],
+           'p1': [0x08,0x08,0x08,0x08,0x0F,0x0F,0x00,0x00]},
+
+    # Border bottom-right corner ($6B, tile index 75)
+    0x6B: {'p0': [0x10,0x10,0x10,0x10,0xF0,0x00,0x00,0x00],
+           'p1': [0x10,0x10,0x10,0x10,0xF0,0xF0,0x00,0x00]},
+
+    # Border horizontal ($6C, tile index 76)
+    0x6C: {'p0': [0x00,0x00,0xFF,0x00,0x00,0x00,0x00,0x00],
+           'p1': [0x00,0x00,0xFF,0xFF,0x00,0x00,0x00,0x00]},
+
+    # Border vertical ($6D, tile index 77)
+    0x6D: {'p0': [0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08],
+           'p1': [0x08,0x08,0x08,0x08,0x08,0x08,0x08,0x08]},
+}
+
+
 def generate_chr(output_path):
-    """Generate 8KB CHR-ROM file with ASCII font in NES 2bpp planar format."""
+    """Generate 8KB CHR-ROM file with ASCII font + game tiles in NES 2bpp planar format."""
     chr_data = bytearray(8192)  # 512 tiles * 16 bytes = 8192
 
+    # Write ASCII font tiles (tile indices 0-95, char codes 0x20-0x7F)
     for char_code in range(0x20, 0x80):
         tile_index = char_code - 0x20  # tile 0 = space (0x20)
         offset = tile_index * 16       # 16 bytes per tile
@@ -124,11 +163,18 @@ def generate_chr(output_path):
             chr_data[offset + row] = bitmap[row]       # Plane 0
             chr_data[offset + 8 + row] = 0x00          # Plane 1 (all zero = color index 1)
 
+    # Write game tiles at their absolute tile indices
+    for tile_id, planes in GAME_TILES.items():
+        offset = tile_id * 16
+        for row in range(8):
+            chr_data[offset + row] = planes['p0'][row]       # Plane 0
+            chr_data[offset + 8 + row] = planes['p1'][row]   # Plane 1
+
     os.makedirs(os.path.dirname(output_path) or '.', exist_ok=True)
     with open(output_path, 'wb') as f:
         f.write(chr_data)
 
-    print(f"Generated {output_path} ({len(chr_data)} bytes, {len(FONT)} glyphs)")
+    print(f"Generated {output_path} ({len(chr_data)} bytes, {len(FONT)} font glyphs + {len(GAME_TILES)} game tiles)")
 
 
 if __name__ == '__main__':

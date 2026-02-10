@@ -7,6 +7,7 @@
 
 .export __STARTUP__: absolute = 1
 .exportzp _nmi_flag
+.exportzp _vbuf_len
 
 .segment "HEADER"
 ; iNES header (16 bytes)
@@ -27,6 +28,7 @@ ppu_mask_var:   .res 1  ; Shadow of PPU_MASK ($2001)
 scroll_x:      .res 1
 scroll_y:      .res 1
 pad_state:     .res 2   ; Controller state (2 pads)
+_vbuf_len:     .res 1   ; VRAM buffer entry count (0..42)
 
 .exportzp ppu_ctrl_var, ppu_mask_var, nmi_ready
 .exportzp scroll_x, scroll_y, pad_state
@@ -37,7 +39,11 @@ oam_buf:    .res 256     ; Sprite OAM buffer at $0200
 .segment "BSS"
 pal_buf:    .res 32      ; Palette buffer
 pal_dirty:  .res 1       ; Non-zero = upload palette in NMI
+_vram_buf:  .res 128     ; VRAM update buffer: 42 entries × 3 bytes (addr_hi, addr_lo, tile) + padding
+_oam_buf = oam_buf       ; C-visible alias
+
 .export pal_buf, pal_dirty, oam_buf
+.export _vram_buf, _oam_buf
 
 .segment "STARTUP"
 
@@ -110,6 +116,10 @@ reset:
     cpx #$20
     bne @init_pal
 
+    ; Clear VRAM buffer
+    lda #$00
+    sta _vbuf_len
+
     ; Initialize cc65 C software stack pointer (grows down from top of RAM)
     lda #$00
     sta sp
@@ -169,6 +179,31 @@ nmi:
     lda #$00
     sta pal_dirty
 @no_pal:
+
+    ; ── VRAM buffer drain ──
+    ; Process queued VRAM updates: each entry is 3 bytes (addr_hi, addr_lo, tile)
+    ldx _vbuf_len
+    beq @no_vbuf           ; Skip if empty
+
+    ldy #$00              ; Buffer read index
+@vbuf_loop:
+    lda _vram_buf,y        ; addr_hi
+    sta $2006
+    iny
+    lda _vram_buf,y        ; addr_lo
+    sta $2006
+    iny
+    lda _vram_buf,y        ; tile
+    sta $2007
+    iny
+    dex
+    bne @vbuf_loop
+
+    ; Clear buffer
+    lda #$00
+    sta _vbuf_len
+
+@no_vbuf:
 
     ; Apply scroll
     lda scroll_x
