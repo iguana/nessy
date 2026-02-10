@@ -18,15 +18,15 @@ const unsigned char piece_x[] = {
     /* O piece */
     1,2,1,2,  1,2,1,2,  1,2,1,2,  1,2,1,2,
     /* T piece */
-    0,1,2,1,  1,1,1,0,  1,0,1,2,  1,1,1,2,
+    0,1,2,1,  1,0,1,1,  1,0,1,2,  0,0,1,0,
     /* S piece */
     1,2,0,1,  0,0,1,1,  1,2,0,1,  0,0,1,1,
     /* Z piece */
     0,1,1,2,  1,1,0,0,  0,1,1,2,  1,1,0,0,
     /* J piece */
-    0,0,1,2,  1,1,1,0,  0,1,2,2,  2,1,1,1,
+    0,0,1,2,  1,2,1,1,  0,1,2,2,  1,1,1,0,
     /* L piece */
-    2,0,1,2,  0,1,1,1,  0,1,2,0,  1,1,1,2,
+    2,0,1,2,  0,1,1,1,  0,1,2,0,  1,1,0,1,
 };
 
 /* Piece Y offsets */
@@ -36,7 +36,7 @@ const unsigned char piece_y[] = {
     /* O piece */
     0,0,1,1,  0,0,1,1,  0,0,1,1,  0,0,1,1,
     /* T piece */
-    0,0,0,1,  0,1,2,1,  1,2,2,2,  1,0,1,1,
+    0,0,0,1,  0,1,1,2,  0,1,1,1,  0,1,1,2,
     /* S piece */
     0,0,1,1,  0,1,1,2,  0,0,1,1,  0,1,1,2,
     /* Z piece */
@@ -44,7 +44,7 @@ const unsigned char piece_y[] = {
     /* J piece */
     0,1,1,1,  0,0,1,2,  1,1,1,2,  0,1,2,2,
     /* L piece */
-    0,1,1,1,  0,0,1,2,  1,1,1,2,  0,0,1,2,
+    0,1,1,1,  0,0,1,2,  1,1,1,2,  0,1,2,2,
 };
 
 /* Sprite palette per piece type (maps to sprite palette 0-3) */
@@ -221,17 +221,17 @@ void collapse_lines(void)
  * Add a 16-bit value to 3-byte BCD score
  * NES doesn't have decimal mode, so we do it manually
  */
-static void bcd_add(unsigned char *bcd, unsigned int val)
+static void bcd_add(unsigned char *bcd, unsigned long val)
 {
-    unsigned int current;
-    unsigned int result;
+    unsigned long current;
+    unsigned long result;
     unsigned char d;
     unsigned char i;
 
     /* Convert BCD to binary */
     current = 0;
     for (i = 0; i < 3; ++i) {
-        current = current * 100 + (bcd[i] >> 4) * 10 + (bcd[i] & 0x0F);
+        current = current * 100UL + (unsigned long)((bcd[i] >> 4) * 10 + (bcd[i] & 0x0F));
     }
 
     result = current + val;
@@ -239,9 +239,9 @@ static void bcd_add(unsigned char *bcd, unsigned int val)
 
     /* Convert back to BCD */
     for (i = 3; i > 0; --i) {
-        d = (unsigned char)(result % 100);
+        d = (unsigned char)(result % 100UL);
         bcd[i - 1] = (unsigned char)(((d / 10) << 4) | (d % 10));
-        result /= 100;
+        result /= 100UL;
     }
 }
 
@@ -249,20 +249,22 @@ static void bcd_add(unsigned char *bcd, unsigned int val)
 void add_score(unsigned char num_lines)
 {
     static const unsigned int points[] = { 0, 40, 100, 300, 1200 };
-    unsigned int pts;
-    unsigned char d;
+    unsigned long pts;
 
-    pts = points[num_lines] * (unsigned int)(level + 1);
+    pts = (unsigned long)points[num_lines] * (unsigned long)(level + 1);
     bcd_add(score, pts);
 
     /* Add to line counter (BCD) */
-    bcd_add(lines, num_lines);
+    bcd_add(lines, (unsigned long)num_lines);
 
-    /* Level up every 10 lines: convert lines BCD to check */
-    d = (lines[0] >> 4) * 10 + (lines[0] & 0x0F);
-    d = d * 100 + (lines[1] >> 4) * 10 + (lines[1] & 0x0F);
-    level = d / 10;
-    if (level > 29) level = 29;
+    /* Level up every 10 lines: convert lines BCD to binary */
+    {
+        unsigned int total_lines;
+        total_lines = (unsigned int)((lines[0] >> 4) * 10 + (lines[0] & 0x0F)) * 100
+                    + (unsigned int)((lines[1] >> 4) * 10 + (lines[1] & 0x0F));
+        level = (unsigned char)(total_lines / 10);
+        if (level > 29) level = 29;
+    }
 }
 
 /* ── Spawn a new piece ── */
@@ -277,6 +279,7 @@ void spawn_piece(void)
     /* If spawn position collides, game over */
     if (check_collision(cur_piece, cur_rot, cur_x, cur_y + 1)) {
         game_state = STATE_GAMEOVER;
+        lineclear_timer = 0;
         hide_sprites();
     }
 }
